@@ -43,6 +43,9 @@
 #define ISCONTROL(c)		(ISCONTROLC0(c) || ISCONTROLC1(c))
 #define ISDELIM(u)		(utf8strchr(worddelimiters, u) != NULL)
 
+/* constants */
+#define ISO14755CMD		"dmenu -fn monospace:size=10 -h 24 -p codepoint: </dev/null"
+
 enum term_mode {
 	MODE_WRAP        = 1 << 0,
 	MODE_INSERT      = 1 << 1,
