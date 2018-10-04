@@ -1903,7 +1903,7 @@ xdrawline(Line line, int x1, int y1, int x2)
 void
 xdrawsixel(SixelContext *ctx, Line *line, int row)
 {
-	ImageList *im;
+	ImageList *im, *tmp;
 	int x, y;
 	int n = 0;
 	int nlimit = 256;
@@ -1911,9 +1911,11 @@ xdrawsixel(SixelContext *ctx, Line *line, int row)
 	XGCValues gcvalues;
 	GC gc;
 
-	for (im = ctx->images; im; im = im->next) {
+	for (im = ctx->images; im;) {
 		if (im->should_delete) {
-			xsixeldeleteimage(ctx, im);
+			tmp = im;
+			im = im->next;
+			xsixeldeleteimage(ctx, tmp);
 			continue;
 		}
 		if (!im->pixmap) {
@@ -1966,13 +1968,16 @@ xdrawsixel(SixelContext *ctx, Line *line, int row)
 			}
 		}
 		if (n == 0) {
-			xsixeldeleteimage(ctx, im);
+			tmp = im;
+			im = im->next;
+			xsixeldeleteimage(ctx, tmp);
 			continue;
 		}
 		if (n > 1)
 			XSetClipRectangles(xw.dpy, gc, 0, 0, rects, n, YXSorted);
 		XCopyArea(xw.dpy, (Drawable)im->pixmap, xw.buf, gc, 0, 0, im->width, im->height, borderpx + im->x * win.cw, borderpx + im->y * win.ch);
 		XFreeGC(xw.dpy, gc);
+		im = im->next;
 	}
 	free(rects);
 }
