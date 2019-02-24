@@ -155,6 +155,8 @@ static void xdrawglyph(Glyph, int, int);
 static void xclear(int, int, int, int);
 static int xgeommasktogravity(int);
 static void ximopen(Display *);
+static XIMStyle ximpickupstyle(XIM);
+static XVaNestedList *ximcreateattribute(Display *, XIMStyle);
 static void ximinstantiate(Display *, XPointer, XPointer);
 static void ximdestroy(XIM, XPointer, XPointer);
 static void xinit(int, int);
@@ -226,6 +228,12 @@ static DC dc;
 static XWindow xw;
 static XSelection xsel;
 static TermWindow win;
+
+/* Supported XIM Styles */
+static XIMStyle ximstyles[] = {
+	(XIMPreeditPosition | XIMStatusNothing), // Over-the-spot
+	(XIMPreeditNothing  | XIMStatusNothing)  // Root
+};
 
 /* Font Ring Cache */
 enum {
@@ -1019,6 +1027,8 @@ xunloadfonts(void)
 void
 ximopen(Display *dpy)
 {
+	XVaNestedList *pnlist;
+	XIMStyle ximstyle;
 	XIMCallback destroy = { .client_data = NULL, .callback = ximdestroy };
 
 	if ((xw.xim = XOpenIM(xw.dpy, NULL, NULL, NULL)) == NULL) {
@@ -1031,10 +1041,62 @@ ximopen(Display *dpy)
 	}
 	if (XSetIMValues(xw.xim, XNDestroyCallback, &destroy, NULL) != NULL)
 		die("XSetIMValues failed. Could not set input method value.\n");
-	xw.xic = XCreateIC(xw.xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
-				XNClientWindow, xw.win, XNFocusWindow, xw.win, NULL);
-	if (xw.xic == NULL)
+	ximstyle = ximpickupstyle(xw.xim);
+	pnlist = ximcreateattribute(dpy, ximstyle);
+	xw.xic = XCreateIC(xw.xim, XNInputStyle, ximstyle,
+	                           XNClientWindow, xw.win,
+	                           XNFocusWindow, xw.win,
+	                           pnlist ? XNPreeditAttributes : NULL, pnlist,
+	                           NULL);
+	if (!pnlist)
+		XFree(pnlist);
+	if (!xw.xic)
 		die("XCreateIC failed. Could not obtain input method.\n");
+}
+
+XIMStyle
+ximpickupstyle(XIM xim)
+{
+	XIMStyles *styles;
+	int i, j;
+	int len = sizeof(ximstyles) / sizeof(XIMStyle);
+
+	XGetIMValues(xim, XNQueryInputStyle, &styles, NULL);
+	for (i = 0; i < len; i++)
+		for (j = 0; j < styles->count_styles; j++)
+			if (ximstyles[i] == styles->supported_styles[j])
+				return ximstyles[i];
+	/* Fallback to root style */
+	return (XIMPreeditNothing | XIMStatusNothing);
+}
+
+XVaNestedList *
+ximcreateattribute(Display *dpy, XIMStyle ximstyle)
+{
+	char pat[32];
+	char **missingcharlist;
+	int nummissingcharlist;
+	char *defstring;
+	XFontSet fontset;
+	XPoint spot = { .x = 0, .y = 0 };
+
+	if (XIMPreeditPosition & ximstyle) {
+		// '-1' for underline.
+		sprintf(pat, "-*-*-*-R-*-*-%d-*-*-*-*-*-*,*", dc.font.height-1);
+		fontset = XCreateFontSet(dpy, pat, &missingcharlist,
+		                         &nummissingcharlist, &defstring);
+		if (missingcharlist)
+			XFreeStringList(missingcharlist);
+		if (!fontset)
+			die("XCreateFontset failed.");
+		return XVaCreateNestedList(0, XNFontSet, fontset,
+		                              XNSpotLocation, &spot,
+		                              XNForeground, dc.col[defaultfg].pixel,
+		                              XNBackground, dc.col[defaultbg].pixel,
+		                              NULL);
+	}
+
+	return NULL;
 }
 
 void
@@ -1598,7 +1660,8 @@ xfinishdraw(void)
 void
 xximspot(int x, int y)
 {
-	XPoint spot = { borderpx + x * win.cw, borderpx + (y + 1) * win.ch };
+	/* '-1' for underline. */
+	XPoint spot = { borderpx + x * win.cw, (y + 1) * win.ch - 1 };
 	XVaNestedList attr = XVaCreateNestedList(0, XNSpotLocation, &spot, NULL);
 
 	XSetICValues(xw.xic, XNPreeditAttributes, attr, NULL);
