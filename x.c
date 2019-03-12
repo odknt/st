@@ -250,8 +250,9 @@ typedef struct {
 } Fontcache;
 
 /* Fontcache is an array now. A new font will be appended to the array. */
-static Fontcache frc[16];
+static Fontcache *frc = NULL;
 static int frclen = 0;
+static int frccap = 0;
 static char *usedfont = NULL;
 static double usedfontsize = 0;
 static double defaultfontsize = 0;
@@ -785,7 +786,6 @@ xsetcolorname(int x, const char *name)
 
 	if (!BETWEEN(x, 0, dc.collen))
 		return 1;
-
 
 	if (!xloadcolor(x, name, &ncolor))
 		return 1;
@@ -1324,13 +1324,10 @@ xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x
 			fontpattern = FcFontSetMatch(0, fcsets, 1,
 					fcpattern, &fcres);
 
-			/*
-			 * Overwrite or create the new cache entry.
-			 */
-			if (frclen >= LEN(frc)) {
-				frclen = LEN(frc) - 1;
-				XftFontClose(xw.dpy, frc[frclen].font);
-				frc[frclen].unicodep = 0;
+			/* Allocate memory for the new cache entry. */
+			if (frclen >= frccap) {
+				frccap += 16;
+				frc = xrealloc(frc, frccap * sizeof(Fontcache));
 			}
 
 			frc[frclen].font = XftFontOpenPattern(xw.dpy,
@@ -1847,7 +1844,6 @@ kpress(XEvent *ev)
 	}
 	ttywrite(buf, len, 1);
 }
-
 
 void
 cmessage(XEvent *e)
