@@ -226,7 +226,7 @@ static MouseShortcut mshortcuts[] = {
  * Open url command
  */
 static char *openurlcmd[] = { "/bin/sh", "-c",
-	"xurls | dmenu -fn monospace:size=10 -h 24 -l 10 | xargs -r xdg-open",
+	"xurls | dmenu -fn monospace:size=10 -b -p 'xdg-open:' -i -nb '#101010' | xargs -r xdg-open",
 	"externalpipe", NULL };
 
 /* Internal keyboard shortcuts. */

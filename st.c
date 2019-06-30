@@ -44,7 +44,7 @@
 #define ISDELIM(u)		(u && wcschr(worddelimiters, u))
 
 /* constants */
-#define ISO14755CMD		"dmenu -fn monospace:size=10 -h 24 -p codepoint: </dev/null"
+#define ISO14755CMD		"dmenu -fn monospace:size=10 -b -i -nb '#101010' -p 'codepoint:' </dev/null"
 
 enum term_mode {
 	MODE_WRAP        = 1 << 0,
