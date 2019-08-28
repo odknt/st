@@ -203,6 +203,8 @@ static int match(uint, uint);
 
 static void run(void);
 static void usage(void);
+static void stoploop();
+static void cleanup();
 static void configinit(Display *);
 
 static void (*handler[LASTEvent])(XEvent *) = {
@@ -236,6 +238,8 @@ static DC dc;
 static XWindow xw;
 static XSelection xsel;
 static TermWindow win;
+static XrmDatabase db;
+static int canloop = 1;
 
 /* Font Ring Cache */
 enum {
@@ -1959,7 +1963,7 @@ run(void)
 	ttyfd = ttynew(opt_line, shell, opt_io, opt_cmd);
 	cresize(w, h);
 
-	for (timeout = -1, drawing = 0, lastblink = (struct timespec){0};;) {
+	for (timeout = -1, drawing = 0, lastblink = (struct timespec){0}; canloop;) {
 		FD_ZERO(&rfd);
 		FD_SET(ttyfd, &rfd);
 		FD_SET(xfd, &rfd);
@@ -1972,6 +1976,8 @@ run(void)
 		tv = timeout >= 0 ? &seltv : NULL;
 
 		if (pselect(MAX(xfd, ttyfd)+1, &rfd, NULL, NULL, tv, NULL) < 0) {
+			if (errno == EBADF)
+				break;
 			if (errno == EINTR)
 				continue;
 			die("select failed: %s\n", strerror(errno));
@@ -2073,7 +2079,6 @@ void
 configinit(Display *dpy)
 {
 	char *resm;
-	XrmDatabase db;
 	ResourcePref *p;
 
 	XrmInitialize();
@@ -2084,6 +2089,30 @@ configinit(Display *dpy)
 	db = XrmGetStringDatabase(resm);
 	for (p = resources; p < resources + LEN(resources); p++)
 		resourceload(db, p->name, p->type, p->dst);
+}
+
+void
+cleanup()
+{
+	XColor *cp;
+	xunloadfonts();
+	XDestroyIC(xw.ime.xic);
+	XCloseIM(xw.ime.xim);
+
+	free(dc.col);
+	free(xw.specbuf);
+	free(frc);
+
+	XFreePixmap(xw.dpy, xw.buf);
+	XDestroyWindow(xw.dpy, xw.win);
+	XrmDestroyDatabase(db);
+	XCloseDisplay(xw.dpy);
+}
+
+void
+stoploop()
+{
+	canloop = 0;
 }
 
 void
@@ -2161,11 +2190,13 @@ run:
 	XSetLocaleModifiers("");
 	cols = MAX(cols, 1);
 	rows = MAX(rows, 1);
+	addcleanfunc(stoploop);
 	tnew(cols, rows);
 	xinit(cols, rows);
 	xsetenv();
 	selinit();
 	run();
+	cleanup();
 
 	return 0;
 }

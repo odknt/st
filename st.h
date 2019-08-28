@@ -57,6 +57,8 @@ enum selection_snap {
 	SNAP_LINE = 2
 };
 
+typedef void (*CleanFunc)();
+
 typedef unsigned char uchar;
 typedef unsigned int uint;
 typedef unsigned long ulong;
@@ -120,6 +122,8 @@ char *xstrdup(const char *);
 
 void kscrolldown(const Arg *);
 void kscrollup(const Arg *);
+
+void addcleanfunc(CleanFunc);
 
 /* config.h globals */
 extern char *utmp;
