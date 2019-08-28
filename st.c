@@ -162,6 +162,7 @@ static void execsh(char *, char **);
 static void stty(char **);
 static void sigchld(int);
 static void ttywriteraw(const char *, size_t);
+static void cleanup();
 
 static void csidump(void);
 static void csihandle(void);
@@ -231,6 +232,8 @@ static STREscape strescseq;
 static int iofd = 1;
 static int cmdfd;
 static pid_t pid;
+static CleanFunc *cleanfuncs = NULL;
+static int ncleanfunc = 0;
 
 static uchar utfbyte[UTF_SIZ + 1] = {0x80,    0, 0xC0, 0xE0, 0xF0};
 static uchar utfmask[UTF_SIZ + 1] = {0xC0, 0x80, 0xE0, 0xF0, 0xF8};
@@ -721,6 +724,23 @@ execsh(char *cmd, char **args)
 }
 
 void
+addcleanfunc(CleanFunc func)
+{
+	cleanfuncs = realloc(cleanfuncs, sizeof(CleanFunc) * (ncleanfunc + 1));
+	cleanfuncs[ncleanfunc++] = func;
+}
+
+void
+cleanup()
+{
+	int i;
+	close(cmdfd);
+	for (i = 0; i < ncleanfunc; i++)
+		cleanfuncs[i]();
+	free(cleanfuncs);
+}
+
+void
 sigchld(int a)
 {
 	int stat;
@@ -731,9 +751,10 @@ sigchld(int a)
 
 	if (pid != p)
 		return;
+	cleanup();
 
 	if (WIFEXITED(stat) && WEXITSTATUS(stat))
-		die("child exited with status %d\n", WEXITSTATUS(stat));
+		fprintf(stderr, "child exited with status %d\n", WEXITSTATUS(stat));
 	else if (WIFSIGNALED(stat))
 		die("child terminated due to signal %d\n", WTERMSIG(stat));
 	_exit(0);
