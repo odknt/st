@@ -105,7 +105,7 @@ typedef struct {
 } MatchFont;
 
 typedef struct {
-	MatchFont font;
+	MatchFont *font;
 	cairo_glyph_t glyph;
 } GlyphFontSpec;
 
@@ -1301,12 +1301,12 @@ xmakeglyphfontspecs(GlyphFontSpec *specs, const Glyph *glyphs, int len, int x, i
 	Rune rune;
 	FT_UInt glyphidx;
 	FcResult fcres;
-	FcPattern *fcpattern, *fontpattern;
+	FcPattern *fcpattern;
 	FcChar8 *path;
-	FcFontSet *fcsets[] = { NULL };
+	FcFontSet *fonts, *fcsets[] = { NULL };
 	FcCharSet *fccharset;
 	FT_Face face;
-	int i, f, numspecs = 0;
+	int i, j, f, numspecs = 0;
 
 	for (i = 0, xp = winx, yp = winy + font->ascent + win.cyo; i < len; ++i) {
 		/* Fetch rune and mode for current glyph. */
@@ -1339,8 +1339,7 @@ xmakeglyphfontspecs(GlyphFontSpec *specs, const Glyph *glyphs, int len, int x, i
 		/* Lookup character index with default font. */
 		glyphidx = FT_Get_Char_Index(font->match.face, rune);
 		if (glyphidx) {
-			specs[numspecs].font.face = font->match.face;
-			specs[numspecs].font.cairo = font->match.cairo;
+			specs[numspecs].font = &font->match;
 			specs[numspecs].glyph.index = glyphidx;
 			specs[numspecs].glyph.x = (short)xp;
 			specs[numspecs].glyph.y = (short)yp;
@@ -1385,11 +1384,11 @@ xmakeglyphfontspecs(GlyphFontSpec *specs, const Glyph *glyphs, int len, int x, i
 			FcConfigSubstitute(0, fcpattern, FcMatchPattern);
 			FcDefaultSubstitute(fcpattern);
 
-			fontpattern = FcFontSetMatch(0, fcsets, 1, fcpattern, &fcres);
-			if (!fontpattern) {
-				FcPatternAddBool(fcpattern, FC_COLOR, 0);
-				fontpattern = FcFontSetMatch(0, fcsets, 1, fcpattern, &fcres);
-			}
+			fonts = FcFontSort(NULL, fcpattern, 1, NULL, &fcres);
+			FcPatternDestroy(fcpattern);
+			FcCharSetDestroy(fccharset);
+			if (!fonts)
+				goto NEXT;
 
 			/* Allocate memory for the new cache entry. */
 			if (frclen >= frccap) {
@@ -1397,35 +1396,35 @@ xmakeglyphfontspecs(GlyphFontSpec *specs, const Glyph *glyphs, int len, int x, i
 				frc = xrealloc(frc, frccap * sizeof(Fontcache));
 			}
 
-			FcPatternGetString(fontpattern, FC_FILE, 0, &path);
-			if (FT_New_Face(ftlib, (const char *)path, 0, &face))
-				die("FT_New_Face failed seeking fallback font: %s\n",
-				    strerror(errno));
-
-			glyphidx = FT_Get_Char_Index(face, rune);
-			if (!glyphidx) {
+			/* veirfy matched font */
+			for (j = 0; j < fonts->nfont; j++) {
+				fcpattern = fonts->fonts[j];
+				FcPatternGetString(fcpattern, FC_FILE, 0, &path);
+				if (FT_New_Face(ftlib, (const char *)path, 0, &face))
+					die("FT_New_Face failed seeking fallback font: %s\n", path);
+				if ((glyphidx = FT_Get_Char_Index(face, rune))) {
+					fcpattern = FcPatternDuplicate(fcpattern);
+					break;
+				}
 				FT_Done_Face(face);
-				FcPatternDestroy(fontpattern);
-				FcPatternDestroy(fcpattern);
-				FcCharSetDestroy(fccharset);
-				goto NEXT;
+				face = NULL;
 			}
+			FcFontSetDestroy(fonts);
+			if (!face)
+				goto NEXT;
 
 			frc[frclen].font.face = face;
 			frc[frclen].font.cairo = cairo_ft_font_face_create_for_ft_face(
 			                         frc[frclen].font.face, FT_LOAD_COLOR);
-			frc[frclen].font.pattern = fontpattern;
+			frc[frclen].font.pattern = fcpattern;
 			frc[frclen].flags = frcflags;
 			frc[frclen].unicodep = rune;
-
-			FcPatternDestroy(fcpattern);
-			FcCharSetDestroy(fccharset);
 
 			f = frclen;
 			frclen++;
 		}
 
-		specs[numspecs].font = frc[f].font;
+		specs[numspecs].font = &frc[f].font;
 		specs[numspecs].glyph.index = glyphidx;
 		specs[numspecs].glyph.x = (short)xp;
 		specs[numspecs].glyph.y = (short)yp;
@@ -1560,7 +1559,7 @@ xdrawglyphfontspec(XColor *fg, const GlyphFontSpec *specs, int len)
 	cairo_set_font_size(xw.draw, defaultfontsize);
 	cairo_set_source_rgb(xw.draw, CONVCOL(fg->red), CONVCOL(fg->green), CONVCOL(fg->blue));
 	for (i = 0; i < len; i++) {
-		cairo_set_font_face(xw.draw, specs[i].font.cairo);
+		cairo_set_font_face(xw.draw, specs[i].font->cairo);
 		cairo_show_glyphs(xw.draw, (cairo_glyph_t *)&specs[i].glyph, 1);
 	}
 }
