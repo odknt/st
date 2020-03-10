@@ -1901,14 +1901,14 @@ xdrawline(Line line, int x1, int y1, int x2)
 }
 
 void
-xdrawsixel(SixelContext *ctx, Line *line, int row)
+xdrawsixel(SixelContext *ctx, Line *line, int row, int col)
 {
 	ImageList *im, *tmp;
 	int x, y;
 	int n = 0;
 	int nlimit = 256;
 	XRectangle *rects = NULL;
-	XGCValues gcvalues;
+	XGCValues gcvalues = { 0 };
 	GC gc;
 
 	for (im = ctx->images; im;) {
@@ -1918,6 +1918,7 @@ xdrawsixel(SixelContext *ctx, Line *line, int row)
 			xsixeldeleteimage(ctx, tmp);
 			continue;
 		}
+
 		if (!im->pixmap) {
 			im->pixmap = (void *)XCreatePixmap(xw.dpy, xw.win, im->width, im->height, DefaultDepth(xw.dpy, xw.scr));
 			XImage ximage = {
@@ -1939,11 +1940,9 @@ xdrawsixel(SixelContext *ctx, Line *line, int row)
 			im->pixels = NULL;
 		}
 		n = 0;
-		memset(&gcvalues, 0, sizeof(gcvalues));
-		gc = XCreateGC(xw.dpy, xw.win, 0, &gcvalues);
-		for (y = im->y; y < im->y + (im->height+win.ch-1)/win.ch; y++) {
-			if (y >= 0 && y < row) {
-				for (x = im->x; x < im->x + (im->width+win.cw-1)/win.cw; x++) {
+		for (y = im->y; y < (im->y + (im->height + win.ch - 1) / win.ch) && y < row; y++) {
+			if (y >= 0) {
+				for (x = im->x; x < (im->x + (im->width + win.cw - 1) / win.cw) && x < col; x++) {
 					if (!rects)
 						rects = xmalloc(sizeof(XRectangle) * nlimit);
 					if (line[y][x].mode & ATTR_SIXEL) {
@@ -1973,6 +1972,7 @@ xdrawsixel(SixelContext *ctx, Line *line, int row)
 			xsixeldeleteimage(ctx, tmp);
 			continue;
 		}
+		gc = XCreateGC(xw.dpy, xw.win, 0, &gcvalues);
 		if (n > 1)
 			XSetClipRectangles(xw.dpy, gc, 0, 0, rects, n, YXSorted);
 		XCopyArea(xw.dpy, (Drawable)im->pixmap, xw.buf, gc, 0, 0, im->width, im->height, borderpx + im->x * win.cw, borderpx + im->y * win.ch);
@@ -2383,9 +2383,11 @@ cleanup()
 	XDestroyIC(xw.ime.xic);
 	XCloseIM(xw.ime.xim);
 
-	free(dc.col);
 	free(xw.specbuf);
 	free(frc);
+
+	free(dc.col);
+	XFreeGC(xw.dpy, dc.gc);
 
 	XFreePixmap(xw.dpy, xw.buf);
 	XDestroyWindow(xw.dpy, xw.win);

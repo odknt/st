@@ -148,7 +148,7 @@ image_buffer_resize(
 		}
 	}
 
-	if (height > image->height) {  /* if height is extended */
+	if (height > min_height) {  /* if height is extended */
 		/* fill extended area with background color */
 		memset(alt_buffer + width * image->height,
 		       0,
@@ -295,6 +295,7 @@ sixel_parser_parse(sixel_state_t *st, unsigned char *p, size_t len)
 	int sy;
 	int c;
 	int pos;
+	int newwidth, newheight;
 	unsigned char *p0 = p;
 	sixel_image_t *image = &st->image;
 
@@ -346,14 +347,12 @@ sixel_parser_parse(sixel_state_t *st, unsigned char *p, size_t len)
 				break;
 			default:
 				if (*p >= '?' && *p <= '~') {  /* sixel characters */
-					if ((image->width < (st->pos_x + st->repeat_count) || image->height < (st->pos_y + 6))
-					        && image->width < DECSIXEL_WIDTH_MAX && image->height < DECSIXEL_HEIGHT_MAX) {
-						sx = image->width * 2;
-						sy = image->height * 2;
-						while (sx < (st->pos_x + st->repeat_count) || sy < (st->pos_y + 6)) {
-							sx *= 2;
-							sy *= 2;
-						}
+					newwidth = st->pos_x + st->repeat_count;
+					newheight = st->pos_y + 6;
+					if ((image->width < newwidth || image->height < newheight) &&
+					    image->width < DECSIXEL_WIDTH_MAX && image->height < DECSIXEL_HEIGHT_MAX) {
+						sx = image->width < newwidth ? newwidth : image->width;
+						sy = newheight;
 
 						if (sx > DECSIXEL_WIDTH_MAX)
 							sx = DECSIXEL_WIDTH_MAX;

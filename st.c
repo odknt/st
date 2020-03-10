@@ -2813,7 +2813,7 @@ draw(void)
 
 	drawregion(0, 0, term.col, term.row);
 	if (term.scr == 0) {
-		xdrawsixel(&term.sixel, term.line, term.row);
+		xdrawsixel(&term.sixel, term.line, term.row, term.col);
 		xdrawcursor(cx, term.c.y, term.line[term.c.y][cx],
 				term.ocx, term.ocy, term.line[term.ocy][term.ocx]);
 	}

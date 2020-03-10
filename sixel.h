@@ -1,14 +1,17 @@
 #ifndef SIXEL_H
 #define SIXEL_H
 
+#include <unistd.h>
+#include <stdint.h>
+
 #define DECSIXEL_PARAMS_MAX 16
 #define DECSIXEL_PALETTE_MAX 1024
 #define DECSIXEL_PARAMVALUE_MAX 65535
 #define DECSIXEL_WIDTH_MAX 4096
 #define DECSIXEL_HEIGHT_MAX 4096
 
-typedef unsigned short sixel_color_no_t;
-typedef unsigned int sixel_color_t;
+typedef uint16_t sixel_color_no_t;
+typedef uint32_t sixel_color_t;
 
 typedef struct sixel_image_buffer {
 	sixel_color_no_t *data;

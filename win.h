@@ -44,7 +44,7 @@ void xsixelnewimage(SixelContext *, int, int);
 int xsixelparse(SixelContext *, unsigned char *, int);
 void xsixeldeleteimage(SixelContext *, ImageList *);
 void xdrawcursor(int, int, Glyph, int, int, Glyph);
-void xdrawsixel(SixelContext *, Line *, int);
+void xdrawsixel(SixelContext *, Line *, int, int);
 void xdrawline(Line, int, int, int);
 void xfinishdraw(void);
 void xloadcols(void);
