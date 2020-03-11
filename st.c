@@ -1115,6 +1115,10 @@ kscrolldown(const Arg* a)
 
 	if (term.scr > 0) {
 		term.scr -= n;
+
+		/* process scrolldown */
+		xsixelscrolldown(&term.sixel, n, term.bot);
+
 		selscroll(0, -n);
 		tfulldirt();
 	}
@@ -1130,6 +1134,10 @@ kscrollup(const Arg* a)
 
 	if (term.scr <= HISTSIZE-n) {
 		term.scr += n;
+
+		/* process scrollup */
+		xsixelscrollup(&term.sixel, n, term.top);
+
 		selscroll(0, n);
 		tfulldirt();
 	}

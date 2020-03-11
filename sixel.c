@@ -254,14 +254,6 @@ sixel_parser_finalize(sixel_state_t *st, unsigned char *pixels)
 			*dst++ = color >> 0 & 0xff;    /* r */
 			dst++;                         /* a */
 		}
-		/* fill right padding with bgcolor */
-		for (; x < st->image.width; ++x) {
-			color = st->image.palette[0];  /* bgcolor */
-			*dst++ = color >> 16 & 0xff;   /* b */
-			*dst++ = color >> 8 & 0xff;    /* g */
-			*dst++ = color >> 0 & 0xff;    /* r */
-			dst++;                         /* a */
-		}
 	}
 	/* fill bottom padding with bgcolor */
 	for (; y < st->image.height; ++y) {
@@ -348,7 +340,7 @@ sixel_parser_parse(sixel_state_t *st, unsigned char *p, size_t len)
 			default:
 				if (*p >= '?' && *p <= '~') {  /* sixel characters */
 					newwidth = st->pos_x + st->repeat_count;
-					newheight = st->pos_y + 6;
+					newheight = st->attributed_pv > 0 ? st->attributed_pv : st->pos_y + 6;
 					if ((image->width < newwidth || image->height < newheight) &&
 					    image->width < DECSIXEL_WIDTH_MAX && image->height < DECSIXEL_HEIGHT_MAX) {
 						sx = image->width < newwidth ? newwidth : image->width;
