@@ -1784,7 +1784,7 @@ xsettitle(char *p)
 int
 xsixelinit(SixelContext *ctx)
 {
-	return sixel_parser_init(&ctx->state, 0, 0 << 16 | 0 << 8 | 0, 1, win.cw, win.ch);
+	return sixel_parser_init(&ctx->state, 0, dc.col[defaultbg].pixel, 1, win.cw, win.ch);
 }
 
 int
